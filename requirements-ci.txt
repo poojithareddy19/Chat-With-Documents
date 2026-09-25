@@ -1,0 +1,9 @@
+# What CI installs. The unit tests use a deterministic fake embedder and a fake
+# HTTP session, so torch, sentence-transformers and Streamlit are left out to
+# keep the pipeline fast. Install requirements.txt for the real app.
+faiss-cpu==1.13.0
+numpy==2.0.2
+pypdf==6.19.0
+requests==2.32.5
+pytest==8.4.2
+ruff==0.16.9

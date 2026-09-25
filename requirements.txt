@@ -1,0 +1,9 @@
+# Runtime dependencies, pinned to the versions the app was verified with
+# (Python 3.9.13, Windows 11). sentence-transformers pulls in torch (~200 MB, CPU build).
+faiss-cpu==1.13.0
+numpy==2.0.2
+pypdf==6.19.0
+python-dotenv==1.2.1
+requests==2.32.5
+sentence-transformers==5.1.2
+streamlit==1.50.0
