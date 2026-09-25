@@ -68,7 +68,10 @@ src/chat_with_documents/
   rag.py                       Prompt assembly, history trimming, answer / answer_stream
   config.py                    Settings.from_env()
   cli.py                       python -m chat_with_documents.cli
-tests/                         25 unit tests, no model download or Ollama needed
+  evaluation.py                page-level recall@k and MRR over a question set
+eval/argo_user_manual.json     30 hand-written questions with their answer pages
+scripts/eval_retrieval.py      runs the evaluation against a PDF
+tests/                         29 unit tests, no model download or Ollama needed
 .github/workflows/ci.yml       ruff + pytest on Python 3.9 and 3.12
 ```
 
@@ -84,9 +87,15 @@ The unit tests replace the two heavy pieces with fakes: a deterministic bag-of-w
 
 What the tests do not cover is answer quality, which depends on the model. See the next section for a real run.
 
-## Verified end to end
+## Measured
 
-See [docs/verification.md](docs/verification.md) for the exact output of a real run on this machine (a 7.6 B parameter model on CPU, no GPU) against a public user manual, including the citations returned.
+**Retrieval quality.** Thirty hand-written questions over a public 99-page manual, each tagged with the pages that answer it, written before any retrieval was run. With default settings the right page is the top hit 63% of the time and within the top five 87% of the time (MRR 0.73). Method, both pre- and post-adjudication scores, and an analysis of every miss are in [docs/evaluation.md](docs/evaluation.md). Reproduce with:
+
+```bash
+python scripts/eval_retrieval.py path/to/argo_user_manual.pdf eval/argo_user_manual.json --verbose
+```
+
+**End to end.** [docs/verification.md](docs/verification.md) has the verbatim output of a real run on this machine (an 8 B model on CPU, no GPU), including the citations returned and a case where the model correctly declined to answer.
 
 ## Design decisions
 

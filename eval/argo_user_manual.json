@@ -1,0 +1,205 @@
+{
+  "document": "argo_user_manual.pdf",
+  "source_url": "https://archimer.ifremer.fr/doc/00187/29825/120885.pdf",
+  "doi": "10.13155/29825",
+  "version": "Argo User's Manual v3.44.0, July 2025",
+  "method": "Questions were written by reading the manual page by page, in the author's own words, before any retrieval was run. relevant_pages lists every page the author found that answers the question; pages not read (approximately pages 4-13, 32-57 and 64-79) may contain further valid answers, which makes the scores conservative.",
+  "questions": [
+    {
+      "question": "How should I cite Argo data in a publication?",
+      "relevant_pages": [
+        14
+      ]
+    },
+    {
+      "question": "Which email address do I use to report a problem with the dataset?",
+      "relevant_pages": [
+        15
+      ]
+    },
+    {
+      "question": "Roughly how many years does a float keep operating in the ocean?",
+      "relevant_pages": [
+        15,
+        16
+      ]
+    },
+    {
+      "question": "What information does cycle 0 contain?",
+      "relevant_pages": [
+        16
+      ]
+    },
+    {
+      "question": "What is the target delay for real-time data to reach the GTS after a float surfaces?",
+      "relevant_pages": [
+        16
+      ]
+    },
+    {
+      "question": "Which DATA_MODE letter marks delayed-mode data?",
+      "relevant_pages": [
+        16,
+        20
+      ]
+    },
+    {
+      "question": "How long after transmission should delayed-mode core CTD data be available at the GDACs?",
+      "relevant_pages": [
+        16
+      ]
+    },
+    {
+      "question": "Why was NetCDF chosen as the Argo file format?",
+      "relevant_pages": [
+        15
+      ]
+    },
+    {
+      "question": "Which version of the CF metadata conventions do Argo files follow?",
+      "relevant_pages": [
+        17,
+        29,
+        48
+      ]
+    },
+    {
+      "question": "What reference date is recommended for Julian days?",
+      "relevant_pages": [
+        19,
+        21,
+        35
+      ]
+    },
+    {
+      "question": "How long is the DATE_TIME dimension and what is its layout?",
+      "relevant_pages": [
+        18,
+        30
+      ]
+    },
+    {
+      "question": "Which reference table lists valid platform types such as APEX or PROVOR?",
+      "relevant_pages": [
+        20,
+        62,
+        86
+      ]
+    },
+    {
+      "question": "What does a trajectory file contain that a profile file does not?",
+      "relevant_pages": [
+        28
+      ]
+    },
+    {
+      "question": "Is the history section filled in the multi-cycle files on the GDAC?",
+      "relevant_pages": [
+        26
+      ]
+    },
+    {
+      "question": "How is the HISTORY_QCTEST hexadecimal value computed?",
+      "relevant_pages": [
+        27,
+        80,
+        94
+      ]
+    },
+    {
+      "question": "What longitude separates the Pacific and Indian oceans in the ocean codes?",
+      "relevant_pages": [
+        81
+      ]
+    },
+    {
+      "question": "How do I fill the SENSOR field when a float carries two pressure sensors?",
+      "relevant_pages": [
+        86,
+        87
+      ]
+    },
+    {
+      "question": "What is the required format of the BATTERY_TYPE field?",
+      "relevant_pages": [
+        62,
+        87,
+        88
+      ]
+    },
+    {
+      "question": "Where is the reason a float stopped working recorded?",
+      "relevant_pages": [
+        89
+      ]
+    },
+    {
+      "question": "What is the file name pattern for a delayed-mode trajectory file?",
+      "relevant_pages": [
+        91
+      ]
+    },
+    {
+      "question": "What does a trailing D in a core profile file name mean?",
+      "relevant_pages": [
+        90
+      ]
+    },
+    {
+      "question": "What prefix do synthetic BGC profile files use?",
+      "relevant_pages": [
+        91
+      ]
+    },
+    {
+      "question": "How often is a snapshot of the whole dataset archived and how is the file named?",
+      "relevant_pages": [
+        97
+      ]
+    },
+    {
+      "question": "How long do GDACs keep rejected files in the reject directory?",
+      "relevant_pages": [
+        97
+      ]
+    },
+    {
+      "question": "Which highly desirable configuration parameters should be filled?",
+      "relevant_pages": [
+        59
+      ]
+    },
+    {
+      "question": "Which part of the water column does near-surface sampling focus on?",
+      "relevant_pages": [
+        84
+      ]
+    },
+    {
+      "question": "Which POSITION_QC flag value tells a user that a position was changed?",
+      "relevant_pages": [
+        96
+      ]
+    },
+    {
+      "question": "What is the glossary definition of a float?",
+      "relevant_pages": [
+        99
+      ]
+    },
+    {
+      "question": "What is the role of a Data Assembly Centre?",
+      "relevant_pages": [
+        99
+      ]
+    },
+    {
+      "question": "What is the first part of CONTROLLER_BOARD_TYPE_PRIMARY and how is free text delimited?",
+      "relevant_pages": [
+        62,
+        87
+      ]
+    }
+  ],
+  "post_hoc_additions": "After the first evaluation run, each miss was checked against the page the retriever returned. Two of them answered the question on pages the author had not read, and those pages were added: p.48 for the CF conventions version and p.21/p.35 (JULD units) for the Julian reference date. The other four misses were confirmed as genuine misses and left unchanged. Scores before and after this adjudication are both reported in docs/evaluation.md."
+}
