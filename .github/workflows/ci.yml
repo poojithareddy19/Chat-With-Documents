@@ -24,3 +24,20 @@ jobs:
       - run: ruff check .
       - run: ruff format --check .
       - run: pytest
+
+  full-install:
+    # The job above never installs torch, sentence-transformers or Streamlit, so
+    # a broken import there would go unnoticed. This one installs the real
+    # requirements (CPU torch) and checks the heavy imports plus the UI render test.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - run: pip install -r requirements.txt pytest==8.4.2
+      - run: pip install --no-deps -e .
+      - run: python -c "import chat_with_documents.embeddings, sentence_transformers"
+      - run: pytest tests/test_app.py

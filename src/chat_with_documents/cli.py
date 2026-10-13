@@ -11,8 +11,9 @@ import sys
 from typing import List, Optional
 
 from chat_with_documents.chunking import chunk_pages
-from chat_with_documents.config import Settings
+from chat_with_documents.config import RETRIEVAL_MODES, Settings
 from chat_with_documents.embeddings import SentenceTransformerEmbedder
+from chat_with_documents.hybrid import Retriever
 from chat_with_documents.index import VectorIndex
 from chat_with_documents.llm import OllamaClient, OllamaError
 from chat_with_documents.loader import load_pdfs
@@ -25,6 +26,9 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("-q", "--question", action="append", help="question (repeatable)")
     parser.add_argument("--model", help="Ollama model name (default: OLLAMA_MODEL or llama3.1)")
     parser.add_argument("--top-k", type=int, help="number of passages to retrieve")
+    parser.add_argument(
+        "--mode", choices=RETRIEVAL_MODES, help="retrieval mode (default: RETRIEVAL_MODE or dense)"
+    )
     parser.add_argument("--list-models", action="store_true", help="list Ollama models and exit")
     return parser
 
@@ -53,7 +57,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 1
     chunks = chunk_pages(pages, settings.chunk_size, settings.chunk_overlap)
     index = VectorIndex.build(chunks, SentenceTransformerEmbedder(settings.embedding_model))
-    print(f"Indexed {len(pages)} pages into {len(chunks)} chunks.\n")
+    mode = args.mode or settings.retrieval_mode
+    retriever = Retriever(index, mode)
+    print(f"Indexed {len(pages)} pages into {len(chunks)} chunks ({mode} retrieval).\n")
 
     model = args.model or settings.ollama_model
     top_k = args.top_k or settings.top_k
@@ -61,13 +67,15 @@ def main(argv: Optional[List[str]] = None) -> int:
     for question in args.question:
         print(f"Q: {question}")
         try:
-            result = answer(question, index, llm, model, history, top_k, settings.history_turns)
+            result = answer(question, retriever, llm, model, history, top_k, settings.history_turns)
         except OllamaError as exc:
             print(exc, file=sys.stderr)
             return 1
         print(f"A: {result.text.strip()}\n")
         for number, hit in enumerate(result.sources, start=1):
             print(f"  [{number}] {hit.chunk.label} (score {hit.score:.2f})")
+        for hit in result.flagged:
+            print(f"  warning: {hit.chunk.label} contains instruction-like text", file=sys.stderr)
         print()
         history += [
             {"role": "user", "content": question},

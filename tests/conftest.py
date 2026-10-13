@@ -1,6 +1,7 @@
-"""Shared test helpers: a hand-built PDF generator and a deterministic embedder.
+"""Shared test helpers: a hand-built PDF generator, a deterministic embedder
+and a scripted chat model.
 
-Neither needs torch, a model download, or a running Ollama server.
+None of them needs torch, a model download, or a running Ollama server.
 """
 
 from __future__ import annotations
@@ -84,6 +85,22 @@ class FakeEmbedder:
         norms = np.linalg.norm(vectors, axis=1, keepdims=True)
         norms[norms == 0] = 1.0
         return vectors / norms
+
+
+class FakeLLM:
+    """Stands in for OllamaClient: replays a fixed reply and records each call."""
+
+    def __init__(self, reply="The answer is 42 [1]."):
+        self.reply = reply
+        self.calls = []
+
+    def chat_stream(self, model, messages):
+        self.calls.append((model, list(messages)))
+        for start in range(0, len(self.reply), 4):  # emulate token-sized pieces
+            yield self.reply[start : start + 4]
+
+    def list_models(self):
+        return ["fake-model"]
 
 
 @pytest.fixture

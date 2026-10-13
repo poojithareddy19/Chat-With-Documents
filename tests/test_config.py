@@ -1,3 +1,5 @@
+import pytest
+
 from chat_with_documents.config import Settings
 
 
@@ -16,3 +18,9 @@ def test_env_overrides_and_host_normalisation():
     assert settings.ollama_host == "http://0.0.0.0:11434"
     assert settings.ollama_model == "qwen2.5"
     assert settings.top_k == 7
+
+
+def test_retrieval_mode_from_env_is_validated():
+    assert Settings.from_env({"RETRIEVAL_MODE": " Hybrid "}).retrieval_mode == "hybrid"
+    with pytest.raises(ValueError):
+        Settings.from_env({"RETRIEVAL_MODE": "sparse"})

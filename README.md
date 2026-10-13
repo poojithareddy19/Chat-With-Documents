@@ -8,9 +8,9 @@ Ask questions about your own PDFs and get answers that cite the file and page th
 
 1. Extracts text from each uploaded PDF page by page (`pypdf`).
 2. Splits every page into overlapping chunks that never cross a page boundary, so each chunk has an exact `file, p.N` label.
-3. Embeds chunks with `sentence-transformers/all-MiniLM-L6-v2` and stores them in a FAISS cosine-similarity index (in memory).
-4. For each question, retrieves the top-k chunks, builds a prompt with numbered passages, and streams the answer from an Ollama model. The model is instructed to answer only from the passages and to cite them as `[1]`, `[2]`.
-5. Shows the answer with an expandable list of the passages used, including similarity scores.
+3. Embeds chunks with `sentence-transformers/all-MiniLM-L6-v2` and stores them in a FAISS cosine-similarity index (in memory). Optionally also builds a BM25 keyword index.
+4. For each question, retrieves the top-k chunks (dense, BM25, or a hybrid of both fused with reciprocal rank fusion), builds a prompt with the numbered passages inside `<context>` tags, and streams the answer from an Ollama model. The model is instructed to answer only from the passages, to treat them as untrusted data, and to cite them as `[1]`, `[2]`.
+5. Shows the answer with an expandable list of the passages used, including similarity scores, and a warning if a passage contains instruction-like text (a possible prompt injection).
 
 Follow-up questions work: the last few turns are sent back to the model as chat history.
 
@@ -38,6 +38,7 @@ Useful for scripted checks or when you do not want the UI:
 
 ```bash
 python -m chat_with_documents.cli manual.pdf -q "What is this document about?" -q "Summarise section 2"
+python -m chat_with_documents.cli manual.pdf --mode hybrid -q "Which POSITION_QC flag means the position was changed?"
 python -m chat_with_documents.cli --list-models
 ```
 
@@ -53,6 +54,7 @@ All settings are optional environment variables (or a `.env` file, see [.env.exa
 | `CHUNK_SIZE` | `800` | Chunk length in characters |
 | `CHUNK_OVERLAP` | `150` | Overlap between consecutive chunks |
 | `TOP_K` | `4` | Passages retrieved per question |
+| `RETRIEVAL_MODE` | `dense` | `dense`, `bm25` or `hybrid` (BM25 + dense, fused with RRF) |
 | `HISTORY_TURNS` | `4` | Previous question/answer pairs sent to the model |
 
 ## Project layout
@@ -64,15 +66,19 @@ src/chat_with_documents/
   chunking.py                  Page -> Chunk, page-bounded overlapping windows
   embeddings.py                Embedder protocol + sentence-transformers backend
   index.py                     VectorIndex over FAISS IndexFlatIP, returns Hit(chunk, score)
+  hybrid.py                    BM25 index, reciprocal rank fusion, Retriever (dense / bm25 / hybrid)
   llm.py                       OllamaClient: list models, streaming chat, clear errors
-  rag.py                       Prompt assembly, history trimming, answer / answer_stream
+  rag.py                       Prompt assembly, injection flagging, history trimming, answer / answer_stream
   config.py                    Settings.from_env()
   cli.py                       python -m chat_with_documents.cli
-  evaluation.py                page-level recall@k and MRR over a question set
+  evaluation.py                page-level recall@k and MRR, answer-audit helpers
 eval/argo_user_manual.json     30 hand-written questions with their answer pages
-scripts/eval_retrieval.py      runs the evaluation against a PDF
-tests/                         29 unit tests, no model download or Ollama needed
-.github/workflows/ci.yml       ruff + pytest on Python 3.9 and 3.12
+eval/answer_eval.csv           manual answer audit (faithfulness, citations, refusals)
+eval/README.md                 question set format and how to add a document
+scripts/eval_retrieval.py      retrieval evaluation, any number of documents and modes
+scripts/answer_eval.py         collects answers for the manual audit and counts the labels
+tests/                         57 unit tests, no model download or Ollama needed
+.github/workflows/ci.yml       ruff + pytest on Python 3.9 and 3.12, plus a full-install job
 ```
 
 ## Testing
@@ -89,10 +95,20 @@ What the tests do not cover is answer quality, which depends on the model. See t
 
 ## Measured
 
-**Retrieval quality.** Thirty hand-written questions over a public 99-page manual, each tagged with the pages that answer it, written before any retrieval was run. With default settings the right page is the top hit 63% of the time and within the top five 87% of the time (MRR 0.73). Method, both pre- and post-adjudication scores, and an analysis of every miss are in [docs/evaluation.md](docs/evaluation.md). Reproduce with:
+**Retrieval quality.** Thirty hand-written questions over a public 99-page manual, each tagged with the pages that answer it, written before any retrieval was run. Dense retrieval reaches 0.80 recall@5 and 0.66 MRR on the frozen set (0.87 and 0.73 after adjudicating 2 questions whose answers also appear on unread pages). The app passes the model 4 passages, and recall@4 is 0.77 on the frozen set.
+
+Hybrid retrieval (BM25 fused with dense through reciprocal rank fusion) raises frozen recall@4 from **0.77 to 0.93** and MRR from **0.66 to 0.79**, and fixes three of the four genuine dense misses. On 30 questions from one document that is five questions, so the default stays dense until a second, independently frozen question set confirms it.
+
+| Mode (frozen set) | Recall@1 | Recall@4 | Recall@5 | MRR |
+| --- | --- | --- | --- | --- |
+| Dense | 0.57 | 0.77 | 0.80 | 0.66 |
+| BM25 | 0.53 | 0.83 | 0.87 | 0.67 |
+| Hybrid (RRF) | 0.70 | 0.93 | 0.93 | 0.79 |
+
+Method, both pre- and post-adjudication scores, and an analysis of every miss are in [docs/evaluation.md](docs/evaluation.md). Reproduce with:
 
 ```bash
-python scripts/eval_retrieval.py path/to/argo_user_manual.pdf eval/argo_user_manual.json --verbose
+python scripts/eval_retrieval.py path/to/argo_user_manual.pdf eval/argo_user_manual.json --mode all --k 1 3 4 5 --frozen --verbose
 ```
 
 **End to end.** [docs/verification.md](docs/verification.md) has the verbatim output of a real run on this machine (an 8 B model on CPU, no GPU), including the citations returned and a case where the model correctly declined to answer.
@@ -103,6 +119,8 @@ python scripts/eval_retrieval.py path/to/argo_user_manual.pdf eval/argo_user_man
 - **Chunks never cross pages.** Splitting the concatenated text of all files (the common tutorial approach) loses the page number. Page-bounded chunks make citations exact at the cost of slightly more chunks.
 - **Cosine similarity via inner product.** Embeddings are L2-normalised, so `IndexFlatIP` gives cosine scores in `[-1, 1]` that are meaningful to show in the UI.
 - **Retrieve first, then stream.** Sources are known before the first token arrives, so the UI can show them even if generation is interrupted.
+- **Hybrid retrieval with RRF, not score addition.** Cosine scores live in [-1, 1] and BM25 scores are unbounded, so adding them needs a normalisation that would be one more thing to tune. Reciprocal rank fusion uses ranks only. Every hit still carries its cosine score, so the UI shows a comparable number in all modes.
+- **Prompt-injection guard.** Retrieved text goes inside `<context>` tags, the system prompt says it is untrusted data, and context tags inside a document are neutralised so a PDF cannot close the block early. Chunks containing phrases such as "ignore previous instructions" or "you are now" trigger a warning in the UI and CLI. This reduces the risk but does not eliminate it: delimiter-based defences can be bypassed, and the phrase list only catches the obvious attempts. See [docs/verification.md](docs/verification.md) for a test against a real model.
 - **In-memory index.** Indexing a few hundred pages takes seconds on CPU, and persisting the index would raise questions about invalidation when files change. Persistence is an easy addition (`faiss.write_index`) if a use case needs it.
 
 ## Limitations
@@ -110,7 +128,26 @@ python scripts/eval_retrieval.py path/to/argo_user_manual.pdf eval/argo_user_man
 - Scanned PDFs have no extractable text. The app tells you which files were skipped, but does not run OCR.
 - One index per browser session; there is no multi-user state or authentication.
 - Answer quality is bounded by the local model. Small quantised models occasionally ignore the citation instruction.
-- Retrieval is pure dense search. A hybrid with BM25 would help for exact identifiers and part numbers.
+- Prompt injection is mitigated, not solved (see Design decisions). Read the cited sources before acting on answers about documents you do not trust.
+- The retrieval evaluation covers one document so far, and answer quality is audited only by hand on a small sample (see `scripts/answer_eval.py`).
+
+## Project history
+
+v1 (April 2026) followed the LangChain "chat with multiple PDFs" tutorial. In September 2026 I rebuilt it without LangChain and squashed the history when publishing the rewrite, so the commit log starts there.
+
+### What I changed from the tutorial
+
+| Change | Why |
+| --- | --- |
+| Removed LangChain | Its `ConversationalRetrievalChain` imports were deprecated, and the chain hid the prompt, the scores and the citation logic |
+| Page-bounded chunker | Chunks never cross a page, so every chunk has an exact `file, p.N` label |
+| Page citations | Answers cite numbered passages, and the UI lists the file and page of each one |
+| Normalised embeddings with FAISS inner product | Inner product of unit vectors is cosine similarity, a score that can be shown to the user |
+| Retrieve before streaming | Sources are known before the first token, even if generation is interrupted |
+| Fakes for offline tests | Fake embedder, fake Ollama session and hand-built PDFs, so CI needs no torch, model or server |
+| Retrieval evaluation | A 30-question set frozen before any run, page-level recall@k and MRR, every miss analysed |
+| Hybrid BM25 + dense retrieval | Fixes exact-identifier misses; frozen recall@4 0.77 to 0.93 |
+| Prompt-injection guard | Untrusted-context prompt, tag neutralising, and a warning on suspicious passages |
 
 ## License
 

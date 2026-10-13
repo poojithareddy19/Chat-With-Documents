@@ -15,6 +15,18 @@ def _normalise_host(host: str) -> str:
     return host
 
 
+RETRIEVAL_MODES = ("dense", "bm25", "hybrid")
+
+
+def _retrieval_mode(mode: str) -> str:
+    mode = mode.strip().lower()
+    if mode not in RETRIEVAL_MODES:
+        raise ValueError(
+            f"RETRIEVAL_MODE must be one of {', '.join(RETRIEVAL_MODES)}, got {mode!r}"
+        )
+    return mode
+
+
 @dataclass(frozen=True)
 class Settings:
     ollama_host: str = "http://localhost:11434"
@@ -23,6 +35,7 @@ class Settings:
     chunk_size: int = 800
     chunk_overlap: int = 150
     top_k: int = 4
+    retrieval_mode: str = "dense"
     history_turns: int = 4
 
     @classmethod
@@ -36,5 +49,6 @@ class Settings:
             chunk_size=int(env.get("CHUNK_SIZE", default.chunk_size)),
             chunk_overlap=int(env.get("CHUNK_OVERLAP", default.chunk_overlap)),
             top_k=int(env.get("TOP_K", default.top_k)),
+            retrieval_mode=_retrieval_mode(env.get("RETRIEVAL_MODE", default.retrieval_mode)),
             history_turns=int(env.get("HISTORY_TURNS", default.history_turns)),
         )

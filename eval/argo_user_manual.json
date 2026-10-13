@@ -61,12 +61,19 @@
         17,
         29,
         48
+      ],
+      "added_after_review": [
+        48
       ]
     },
     {
       "question": "What reference date is recommended for Julian days?",
       "relevant_pages": [
         19,
+        21,
+        35
+      ],
+      "added_after_review": [
         21,
         35
       ]

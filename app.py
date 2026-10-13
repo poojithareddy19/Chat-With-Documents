@@ -14,11 +14,13 @@ from chat_with_documents import (
     Hit,
     OllamaClient,
     OllamaError,
+    Retriever,
     SentenceTransformerEmbedder,
     Settings,
     VectorIndex,
     answer_stream,
     chunk_pages,
+    flag_injections,
     load_pdfs,
 )
 
@@ -49,10 +51,22 @@ def render_sources(hits: Sequence[Hit]) -> None:
             st.caption(snippet)
 
 
+def warn_if_injected(hits: Sequence[Hit]) -> None:
+    flagged = flag_injections(hits)
+    if flagged:
+        st.warning(
+            'Some sources contain instruction-like text (for example "ignore previous '
+            'instructions"), which may be a prompt-injection attempt: '
+            + ", ".join(hit.chunk.label for hit in flagged)
+            + ". Check the answer against the sources."
+        )
+
+
 def process_uploads(uploads: List) -> None:
     pages = load_pdfs(uploads)
     chunks = chunk_pages(pages, SETTINGS.chunk_size, SETTINGS.chunk_overlap)
-    st.session_state.index = VectorIndex.build(chunks, get_embedder(SETTINGS.embedding_model))
+    index = VectorIndex.build(chunks, get_embedder(SETTINGS.embedding_model))
+    st.session_state.index = Retriever(index, SETTINGS.retrieval_mode)
     st.session_state.messages = []
     st.session_state.summary = (
         f"{len(uploads)} file(s), {len(pages)} page(s) with text, {len(chunks)} chunk(s)"
@@ -109,6 +123,7 @@ def main() -> None:
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
+            warn_if_injected(message.get("sources", []))
             render_sources(message.get("sources", []))
 
     question = st.chat_input("Ask a question about your documents")
@@ -139,6 +154,7 @@ def main() -> None:
         except OllamaError as exc:
             st.error(str(exc))
             return
+        warn_if_injected(hits)
         render_sources(hits)
 
     st.session_state.messages.append({"role": "user", "content": question})

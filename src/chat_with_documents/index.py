@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, Protocol
 
 import faiss
 import numpy as np
@@ -16,6 +16,12 @@ from chat_with_documents.embeddings import Embedder
 class Hit:
     chunk: Chunk
     score: float  # cosine similarity in [-1, 1]
+
+
+class Searcher(Protocol):
+    """Anything that returns ranked hits for a query: VectorIndex or hybrid.Retriever."""
+
+    def search(self, query: str, k: int) -> List[Hit]: ...
 
 
 class VectorIndex:
